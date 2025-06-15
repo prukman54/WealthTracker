@@ -26,26 +26,181 @@
 }
 
 .dark {
-  /* Dark Mode Colors */
+  /* Dark Mode Colors - Enhanced for better visibility */
   --primary: #cdaf7d;
   --accent: #013220;
-  --secondary: #2c3e50;
-  --background: #121212;
-  --surface: #1e1e1e;
-  --text-primary: #ffffff;
-  --text-secondary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --border: #374151;
-  --input: #1e1e1e;
+  --secondary: #34d399;
+  --background: #0f172a;
+  --surface: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --input: #1e293b;
   --ring: #cdaf7d;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --muted: #1e1e1e;
-  --muted-foreground: #9ca3af;
-  --popover: #1e1e1e;
-  --popover-foreground: #ffffff;
-  --card: #1e1e1e;
-  --card-foreground: #ffffff;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+}
+
+/* Enhanced dark mode text visibility */
+.dark {
+  color: #f8fafc;
+}
+
+.dark .wealth-quote {
+  color: #cdaf7d !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #f8fafc !important;
+}
+
+.dark p,
+.dark span,
+.dark div {
+  color: #e2e8f0;
+}
+
+.dark .text-muted-foreground {
+  color: #94a3b8 !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-green-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-purple-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-orange-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-teal-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-indigo-50 {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+.dark .bg-gray-50 {
+  background-color: #334155 !important;
+}
+
+.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.dark .text-green-600 {
+  color: #34d399 !important;
+}
+
+.dark .text-purple-600 {
+  color: #a78bfa !important;
+}
+
+.dark .text-orange-600 {
+  color: #fb923c !important;
+}
+
+.dark .text-teal-600 {
+  color: #2dd4bf !important;
+}
+
+.dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+.dark .text-red-600 {
+  color: #f87171 !important;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* Enhanced button visibility in dark mode */
+.dark button {
+  font-weight: 500;
+  border-width: 1px;
+}
+
+.dark .btn-outline,
+.dark button[variant="outline"] {
+  border: 2px solid #cdaf7d !important;
+  color: #cdaf7d !important;
+  background-color: transparent !important;
+}
+
+.dark .btn-outline:hover,
+.dark button[variant="outline"]:hover {
+  background-color: #cdaf7d !important;
+  color: #0f172a !important;
+}
+
+/* Card improvements for dark mode */
+.dark .card {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+/* Input and form improvements */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Tab improvements */
+.dark [role="tablist"] {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.dark [role="tab"] {
+  color: #94a3b8;
+}
+
+.dark [role="tab"][data-state="active"] {
+  color: #cdaf7d;
+  background-color: #334155;
 }
 
 * {
