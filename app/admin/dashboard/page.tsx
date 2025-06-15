@@ -71,6 +71,7 @@ export default function AdminDashboardPage() {
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "failed">("checking")
   const router = useRouter()
   const [userGoals, setUserGoals] = useState<FinancialGoal[]>([])
+  const [goalsLoading, setGoalsLoading] = useState(false)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -269,9 +270,12 @@ export default function AdminDashboardPage() {
   }
 
   const loadUserGoals = async (userId: string) => {
+    setGoalsLoading(true)
     try {
       const supabase = getSupabaseClient()
       if (!supabase) throw new Error("Database not available")
+
+      console.log("🎯 Loading goals for user ID:", userId)
 
       // First get the user's auth user_id from the users table
       const { data: userData, error: userError } = await supabase
@@ -281,39 +285,59 @@ export default function AdminDashboardPage() {
         .single()
 
       if (userError) {
-        console.error("Failed to get user auth ID:", userError)
+        console.error("❌ Failed to get user auth ID:", userError)
         throw userError
       }
 
       if (!userData?.user_id) {
-        console.error("No auth user_id found for user:", userId)
+        console.error("❌ No auth user_id found for user:", userId)
         throw new Error("User auth ID not found")
       }
 
-      console.log("Loading goals for auth user_id:", userData.user_id)
+      console.log("🔍 Loading goals for auth user_id:", userData.user_id)
+
+      // Check if financial_goals table exists first
+      const { data: tableCheck, error: tableError } = await supabase
+        .from("financial_goals")
+        .select("count", { count: "exact", head: true })
+
+      if (tableError) {
+        console.error("❌ Financial goals table error:", tableError)
+        if (tableError.message.includes("does not exist")) {
+          console.log("⚠️ Financial goals table does not exist. Please run the setup script.")
+          setUserGoals([])
+          return
+        }
+        throw tableError
+      }
+
+      console.log("✅ Financial goals table exists")
 
       // Now query financial_goals using the auth user_id
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("financial_goals")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", userData.user_id)
         .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Goals query error:", error)
+        console.error("❌ Goals query error:", error)
         throw error
       }
 
-      console.log("Goals data found:", data?.length || 0, "goals")
+      console.log(`✅ Goals query successful. Found ${count} goals for user:`, data)
       setUserGoals(data || [])
     } catch (err) {
-      console.error("Failed to load user goals:", err)
+      console.error("❌ Failed to load user goals:", err)
       setUserGoals([])
+    } finally {
+      setGoalsLoading(false)
     }
   }
 
   const handleViewUserFlow = (user: User) => {
     setSelectedUser(user)
+    setUserGoals([]) // Clear previous goals
     loadUserMoneyFlow(user.id)
     loadUserGoals(user.id)
   }
@@ -622,11 +646,20 @@ export default function AdminDashboardPage() {
                                     {/* Financial Goals */}
                                     <div>
                                       <h3 className="text-lg font-semibold mb-3">
-                                        Financial Goals ({userGoals.length})
+                                        Financial Goals {goalsLoading ? "(Loading...)" : `(${userGoals.length})`}
                                       </h3>
-                                      {userGoals.length === 0 ? (
+                                      {goalsLoading ? (
+                                        <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                          <p className="text-gray-500">Loading goals...</p>
+                                        </div>
+                                      ) : userGoals.length === 0 ? (
                                         <div className="text-center py-6 bg-gray-50 rounded-lg">
                                           <p className="text-gray-500">No financial goals set yet</p>
+                                          <p className="text-xs text-gray-400 mt-1">
+                                            User hasn't created any goals or the financial_goals table needs to be set
+                                            up
+                                          </p>
                                         </div>
                                       ) : (
                                         <div className="space-y-3">
