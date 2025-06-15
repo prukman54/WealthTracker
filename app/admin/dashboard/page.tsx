@@ -46,6 +46,17 @@ interface Quote {
   created_at: string
 }
 
+interface FinancialGoal {
+  id: string
+  user_id: string
+  goal_name: string
+  target_amount: number
+  current_amount: number
+  is_achieved: boolean
+  created_at: string
+  updated_at: string
+}
+
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -59,6 +70,7 @@ export default function AdminDashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "failed">("checking")
   const router = useRouter()
+  const [userGoals, setUserGoals] = useState<FinancialGoal[]>([])
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -256,9 +268,54 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const loadUserGoals = async (userId: string) => {
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Database not available")
+
+      // First get the user's auth user_id from the users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("user_id")
+        .eq("id", userId)
+        .single()
+
+      if (userError) {
+        console.error("Failed to get user auth ID:", userError)
+        throw userError
+      }
+
+      if (!userData?.user_id) {
+        console.error("No auth user_id found for user:", userId)
+        throw new Error("User auth ID not found")
+      }
+
+      console.log("Loading goals for auth user_id:", userData.user_id)
+
+      // Now query financial_goals using the auth user_id
+      const { data, error } = await supabase
+        .from("financial_goals")
+        .select("*")
+        .eq("user_id", userData.user_id)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Goals query error:", error)
+        throw error
+      }
+
+      console.log("Goals data found:", data?.length || 0, "goals")
+      setUserGoals(data || [])
+    } catch (err) {
+      console.error("Failed to load user goals:", err)
+      setUserGoals([])
+    }
+  }
+
   const handleViewUserFlow = (user: User) => {
     setSelectedUser(user)
     loadUserMoneyFlow(user.id)
+    loadUserGoals(user.id)
   }
 
   const handleAddQuote = async (e: React.FormEvent) => {
@@ -514,44 +571,109 @@ export default function AdminDashboardPage() {
                               <DialogTrigger asChild>
                                 <Button variant="outline" size="sm" onClick={() => handleViewUserFlow(user)}>
                                   <Eye className="h-4 w-4 mr-1" />
-                                  View Money Flow
+                                  View Financial Overview
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-md">
+                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                                 <DialogHeader>
-                                  <DialogTitle>{selectedUser?.name}'s Money Flow</DialogTitle>
-                                  <DialogDescription>Financial summary for {selectedUser?.email}</DialogDescription>
+                                  <DialogTitle>{selectedUser?.name}'s Financial Overview</DialogTitle>
+                                  <DialogDescription>
+                                    Complete financial summary for {selectedUser?.email}
+                                  </DialogDescription>
                                 </DialogHeader>
                                 {userMoneyFlow && selectedUser && (
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="bg-green-50 p-3 rounded-lg">
-                                        <p className="text-sm text-gray-600">Total Income</p>
-                                        <p className="text-lg font-bold text-green-600">
-                                          {getCurrencySymbol(selectedUser.country)}
-                                          {userMoneyFlow.total_income.toLocaleString()}
-                                        </p>
-                                      </div>
-                                      <div className="bg-red-50 p-3 rounded-lg">
-                                        <p className="text-sm text-gray-600">Total Expenses</p>
-                                        <p className="text-lg font-bold text-red-600">
-                                          {getCurrencySymbol(selectedUser.country)}
-                                          {userMoneyFlow.total_expenses.toLocaleString()}
-                                        </p>
+                                  <div className="space-y-6">
+                                    {/* Money Flow Summary */}
+                                    <div>
+                                      <h3 className="text-lg font-semibold mb-3">Money Flow Summary</h3>
+                                      <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div className="bg-green-50 p-3 rounded-lg">
+                                            <p className="text-sm text-gray-600">Total Income</p>
+                                            <p className="text-lg font-bold text-green-600">
+                                              {getCurrencySymbol(selectedUser.country)}
+                                              {userMoneyFlow.total_income.toLocaleString()}
+                                            </p>
+                                          </div>
+                                          <div className="bg-red-50 p-3 rounded-lg">
+                                            <p className="text-sm text-gray-600">Total Expenses</p>
+                                            <p className="text-lg font-bold text-red-600">
+                                              {getCurrencySymbol(selectedUser.country)}
+                                              {userMoneyFlow.total_expenses.toLocaleString()}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="bg-blue-50 p-3 rounded-lg">
+                                          <p className="text-sm text-gray-600">Net Savings</p>
+                                          <p
+                                            className={`text-xl font-bold ${userMoneyFlow.net_savings >= 0 ? "text-blue-600" : "text-red-600"}`}
+                                          >
+                                            {getCurrencySymbol(selectedUser.country)}
+                                            {userMoneyFlow.net_savings.toLocaleString()}
+                                          </p>
+                                        </div>
+                                        <div className="bg-gray-50 p-3 rounded-lg">
+                                          <p className="text-sm text-gray-600">Total Transactions</p>
+                                          <p className="text-lg font-semibold">{userMoneyFlow.transaction_count}</p>
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="bg-blue-50 p-3 rounded-lg">
-                                      <p className="text-sm text-gray-600">Net Savings</p>
-                                      <p
-                                        className={`text-xl font-bold ${userMoneyFlow.net_savings >= 0 ? "text-blue-600" : "text-red-600"}`}
-                                      >
-                                        {getCurrencySymbol(selectedUser.country)}
-                                        {userMoneyFlow.net_savings.toLocaleString()}
-                                      </p>
-                                    </div>
-                                    <div className="bg-gray-50 p-3 rounded-lg">
-                                      <p className="text-sm text-gray-600">Total Transactions</p>
-                                      <p className="text-lg font-semibold">{userMoneyFlow.transaction_count}</p>
+
+                                    {/* Financial Goals */}
+                                    <div>
+                                      <h3 className="text-lg font-semibold mb-3">
+                                        Financial Goals ({userGoals.length})
+                                      </h3>
+                                      {userGoals.length === 0 ? (
+                                        <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                          <p className="text-gray-500">No financial goals set yet</p>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          {userGoals.map((goal) => {
+                                            const progress =
+                                              goal.target_amount > 0
+                                                ? (goal.current_amount / goal.target_amount) * 100
+                                                : 0
+                                            return (
+                                              <div key={goal.id} className="bg-white border rounded-lg p-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                  <div className="flex items-center space-x-2">
+                                                    <h4 className="font-medium">{goal.goal_name}</h4>
+                                                    {goal.is_achieved && <span className="text-green-600">✅</span>}
+                                                  </div>
+                                                  <span className="text-sm text-gray-500">
+                                                    {Math.round(progress)}% complete
+                                                  </span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <div className="flex justify-between text-sm">
+                                                    <span>
+                                                      Current: {getCurrencySymbol(selectedUser.country)}
+                                                      {goal.current_amount.toLocaleString()}
+                                                    </span>
+                                                    <span>
+                                                      Target: {getCurrencySymbol(selectedUser.country)}
+                                                      {goal.target_amount.toLocaleString()}
+                                                    </span>
+                                                  </div>
+                                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                                    <div
+                                                      className={`h-2 rounded-full transition-all duration-300 ${
+                                                        goal.is_achieved ? "bg-green-500" : "bg-blue-500"
+                                                      }`}
+                                                      style={{ width: `${Math.min(progress, 100)}%` }}
+                                                    />
+                                                  </div>
+                                                  <p className="text-xs text-gray-500">
+                                                    Created: {new Date(goal.created_at).toLocaleDateString()}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 )}
