@@ -15,10 +15,18 @@ Note: Admin authentication uses localStorage-based session management for demo p
 Supabase URL: https://ejikvbkjbmmtzuotsxgd.supabase.co
 Supabase Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaWt2YmtqYm1tdHp1b3RzeGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5NjEwMDksImV4cCI6MjA2NTUzNzAwOX0.V9gAyLpfFc20a6v5cWzLJ-sWrp1FAi9nPgYYGrCoNtU
 
-## DATABASE SETUP
-1. Run scripts/01-create-tables.sql - Creates users, money_flow, and quotes tables with RLS policies
-2. Run scripts/02-seed-data.sql - Adds sample inspirational quotes
-3. Skip scripts/03-fix-admin-policies.sql and scripts/04-reset-and-fix-policies.sql (already configured)
+## DATABASE SETUP (For New Deployments)
+Run these scripts in order in your Supabase SQL Editor:
+
+1. scripts/01-create-tables.sql - Creates users, money_flow, and quotes tables with RLS policies
+2. scripts/02-seed-data.sql - Adds sample inspirational quotes
+3. scripts/03-reset-and-fix-policies.sql - Configures security policies
+4. scripts/04-add-financial-goals.sql - Adds financial goals functionality
+5. scripts/05-fix-user-id-relationships.sql - Fixes user ID relationships
+6. scripts/06-verify-setup.sql - Validates the complete setup
+7. scripts/07-enable-admin-access.sql - Enables admin access to goals
+
+For detailed setup instructions, see scripts/00-SETUP-GUIDE.sql
 
 ## PROJECT STRUCTURE
 
@@ -49,10 +57,9 @@ Supabase Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 - components/theme-toggle.tsx - Theme toggle button component
 
 ### LIBRARY FILES
-- lib/supabase.ts - Supabase client configuration
-- lib/auth.ts - Authentication functions (signup, signin, signout)
-- lib/constants.ts - Countries, currencies, and categories data
-- lib/supabase-test.ts - Database connection testing utilities
+- lib/supabase.ts - Supabase client configuration with detailed documentation
+- lib/auth.ts - Authentication functions with comprehensive comments
+- lib/constants.ts - Countries, currencies, and categories data with usage examples
 
 ### ASSETS
 - public/image/lo.webp - Custom logo/favicon (golden crown with "R")
@@ -71,20 +78,22 @@ Dark Mode:
 - Surface: #1e1e1e (Dark Surface)
 
 ## KEY FEATURES
-1. User Authentication (Email/Password)
-2. Money Flow Tracking (Income/Expenses)
-3. Investment Calculators (Compound Interest, Rule of 72, Mortgage)
-4. Admin Panel (User Management, Quote Management)
-5. Dark/Light Theme Toggle
-6. Multi-currency Support (10 countries)
-7. Responsive Design
-8. Real-time Database Updates
+1. User Authentication (Email/Password with verification)
+2. Money Flow Tracking (Income/Expenses with categories)
+3. Financial Goals (Set, track, and achieve milestones)
+4. Investment Calculators (Compound Interest, Rule of 72, DCF, P/E Ratio, etc.)
+5. Admin Panel (User Management, Quote Management)
+6. Dark/Light Theme Toggle
+7. Multi-currency Support (10 countries)
+8. Responsive Design
+9. Real-time Database Updates
+10. Row Level Security (RLS) for data protection
 
 ## DATABASE SCHEMA
 
 ### users table
 - id: UUID (Primary Key)
-- user_id: UUID (References auth.users)
+- user_id: UUID (References auth.users) - CRITICAL for RLS policies
 - name: TEXT
 - email: TEXT (Unique)
 - phone: TEXT
@@ -94,13 +103,23 @@ Dark Mode:
 
 ### money_flow table
 - id: UUID (Primary Key)
-- user_id: UUID (References auth.users)
+- user_id: UUID (References auth.users) - CRITICAL for RLS policies
 - type: TEXT ('income' or 'expense')
 - amount: DECIMAL(12,2)
 - category: TEXT
 - date: DATE
 - description: TEXT
 - created_at: TIMESTAMP
+
+### financial_goals table
+- id: UUID (Primary Key)
+- user_id: UUID (References auth.users) - CRITICAL for RLS policies
+- name: TEXT
+- target_amount: DECIMAL(15,2)
+- current_amount: DECIMAL(15,2)
+- is_achieved: BOOLEAN
+- created_at: TIMESTAMP
+- updated_at: TIMESTAMP
 
 ### quotes table
 - id: SERIAL (Primary Key)
@@ -157,6 +176,22 @@ Food, Travel, Transportation, Rent, Utilities, Entertainment, Healthcare, Misc
 - Admin-only access to user management
 - Secure authentication with Supabase Auth
 - HTTPS enforcement in production
+- Email verification required for login
+
+## ARCHITECTURE HIGHLIGHTS
+
+### Authentication Flow
+1. User signs up → Supabase Auth creates auth.users record
+2. App creates users table record linked to auth.users.id
+3. All user data uses auth.users.id as foreign key
+4. RLS policies ensure users only see their own data
+5. Admin has special policies to view all data
+
+### Data Relationships
+- All user tables reference auth.users(id) via user_id field
+- This ensures RLS policies work correctly
+- Admin access bypasses RLS for management functions
+- Quotes table is global (no user association)
 
 ## CUSTOMIZATION GUIDE
 
@@ -185,17 +220,17 @@ Update TypeScript interfaces in relevant files
 ### Database Connection Issues:
 - Check Supabase credentials in .env.local
 - Verify RLS policies are properly set
-- Run lib/supabase-test.ts to test connection
+- Check browser console for detailed error messages
 
 ### Authentication Problems:
 - Ensure email verification is completed
 - Check Supabase Auth settings
 - Verify user exists in both auth.users and public.users tables
 
-### Theme Issues:
-- Check CSS variables are properly defined
-- Verify theme provider is wrapping the app
-- Ensure localStorage is available (client-side only)
+### Goals Not Showing:
+- Check user_id consistency between tables
+- Verify RLS policies allow access
+- Run verification scripts to debug
 
 ### Admin Access Issues:
 - Use exact credentials: prukman54@gmail.com / $$1M_BTC$$
@@ -208,6 +243,14 @@ Update TypeScript interfaces in relevant files
 - Update CORS settings in Supabase
 - Set up proper SSL certificates
 - Configure database backups
+- Test all functionality after deployment
+
+## PERFORMANCE OPTIMIZATIONS
+- Database indexes on common queries
+- Efficient RLS policies
+- Optimized component rendering
+- Lazy loading where appropriate
+- Compressed assets
 
 ## FUTURE ENHANCEMENTS
 - Google OAuth integration
@@ -217,7 +260,7 @@ Update TypeScript interfaces in relevant files
 - Advanced financial charts
 - Investment portfolio tracking
 - Budget planning tools
-- Financial goal setting
+- Financial goal setting improvements
 
 ## SUPPORT
 For technical issues or customizations, refer to:
@@ -230,3 +273,6 @@ v1.0 - Initial release with core features
 v1.1 - Added dark/light theme toggle
 v1.2 - Updated color scheme to emerald green and gold
 v1.3 - Added custom logo and favicon
+v1.4 - Added financial goals functionality
+v1.5 - Improved admin dashboard and RLS policies
+v1.6 - Code cleanup and documentation improvements

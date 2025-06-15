@@ -1,30 +1,63 @@
-# Image Analysis
+# 🏦 WealthTracker - Complete Personal Finance Management System
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A comprehensive personal finance management application built with **Next.js 15**, **Supabase**, and **TypeScript**. Features include income/expense tracking, financial goal management, investment calculators, and a complete admin dashboard.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/rukman-puris-projects/v0-image-analysis)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/8rgi6PcgTZC)
+## 🌟 Key Features
 
-## Overview
+### 👤 **User Features**
+- **Authentication**: Email/password signup and login with email verification
+- **Money Flow Tracking**: Track income and expenses with detailed categorization
+- **Financial Goals**: Set, track, and achieve financial milestones
+- **Investment Calculators**: Compound interest, Rule of 72, DCF, P/E ratio, and more
+- **Multi-Currency Support**: 10 countries with local currency symbols
+- **Dark/Light Theme**: Beautiful theme switching with custom color schemes
+- **Responsive Design**: Works perfectly on desktop, tablet, and mobile
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+### 🛡️ **Admin Features**
+- **User Management**: View all registered users and their financial data
+- **Quote Management**: Add/remove inspirational quotes for users
+- **Financial Overview**: Complete financial summary for each user
+- **Database Monitoring**: Real-time connection status and data insights
 
-## Deployment
+## 🏗️ Architecture Overview
 
-Your project is live at:
+\`\`\`
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Next.js App   │────│   Supabase DB   │────│  Row Level Sec  │
+│  (Frontend/API) │    │   (PostgreSQL)  │    │   (RLS Policies)│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Authentication │    │  Data Storage   │    │   Security      │
+│  - Supabase Auth│    │  - Users        │    │  - User Isolation│
+│  - JWT Tokens   │    │  - Money Flow   │    │  - Admin Access │
+│  - Email Verify │    │  - Goals        │    │  - Data Privacy │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+\`\`\`
 
-**[https://vercel.com/rukman-puris-projects/v0-image-analysis](https://vercel.com/rukman-puris-projects/v0-image-analysis)**
+## 📊 Database Schema & Security
 
-## Build your app
+### 🔐 **Authentication Flow**
+\`\`\`
+1. User signs up → Supabase Auth creates auth.users record
+2. App creates users table record linked to auth.users.id
+3. All user data uses auth.users.id as foreign key
+4. RLS policies ensure users only see their own data
+5. Admin has special policies to view all data
+\`\`\`
 
-Continue building your app on:
+### 📋 **Database Tables**
 
-**[https://v0.dev/chat/projects/8rgi6PcgTZC](https://v0.dev/chat/projects/8rgi6PcgTZC)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+#### **1. users** (User Profiles)
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),           -- Internal table ID
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- Links to Supabase Auth
+  name TEXT NOT NULL,                                      -- Full name
+  email TEXT NOT NULL UNIQUE,                             -- Email address
+  phone TEXT,                                             -- Phone number
+  country TEXT NOT NULL,                                  -- Country code (US, IN, etc.)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),     -- Account creation
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()      -- Last profile update
+);
