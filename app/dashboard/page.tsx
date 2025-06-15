@@ -12,7 +12,7 @@ import AuthGuard from "@/components/auth-guard"
 import { getCurrentUser, signOut } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { COUNTRIES } from "@/lib/constants"
-import { TrendingUp, DollarSign, BarChart3, LogOut, User, RefreshCw, Menu, Plus } from "lucide-react"
+import { TrendingUp, DollarSign, BarChart3, LogOut, User, RefreshCw, Menu, Plus, Check } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +48,7 @@ export default function DashboardPage() {
     currentAmount: "",
   })
   const [addingGoal, setAddingGoal] = useState(false)
+  const [updatingGoals, setUpdatingGoals] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadUserProfile()
@@ -246,24 +247,53 @@ export default function DashboardPage() {
   }
 
   const updateGoalProgress = async (goalId: string, newAmount: number) => {
+    setUpdatingGoals((prev) => ({ ...prev, [goalId]: true }))
     try {
-      const { error } = await supabase.from("financial_goals").update({ current_amount: newAmount }).eq("id", goalId)
+      const { error } = await supabase
+        .from("financial_goals")
+        .update({
+          current_amount: newAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", goalId)
 
       if (error) throw error
-      loadGoals()
+
+      // Update local state immediately for better UX
+      setGoals((prevGoals) =>
+        prevGoals.map((goal) => (goal.id === goalId ? { ...goal, current_amount: newAmount } : goal)),
+      )
+
+      console.log("✅ Goal updated successfully")
     } catch (err) {
       console.error("Failed to update goal:", err)
+      setError("Failed to update goal progress")
+    } finally {
+      setUpdatingGoals((prev) => ({ ...prev, [goalId]: false }))
     }
   }
 
   const toggleGoalAchieved = async (goalId: string, isAchieved: boolean) => {
     try {
-      const { error } = await supabase.from("financial_goals").update({ is_achieved: !isAchieved }).eq("id", goalId)
+      const { error } = await supabase
+        .from("financial_goals")
+        .update({
+          is_achieved: !isAchieved,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", goalId)
 
       if (error) throw error
-      loadGoals()
+
+      // Update local state immediately
+      setGoals((prevGoals) =>
+        prevGoals.map((goal) => (goal.id === goalId ? { ...goal, is_achieved: !isAchieved } : goal)),
+      )
+
+      console.log("✅ Goal achievement status updated")
     } catch (err) {
       console.error("Failed to toggle goal:", err)
+      setError("Failed to update goal status")
     }
   }
 
@@ -716,6 +746,7 @@ export default function DashboardPage() {
                                 step="0.01"
                                 placeholder="Update amount"
                                 className="text-sm"
+                                disabled={updatingGoals[goal.id]}
                                 onKeyPress={(e) => {
                                   if (e.key === "Enter") {
                                     const newAmount = Number.parseFloat((e.target as HTMLInputElement).value)
@@ -726,6 +757,30 @@ export default function DashboardPage() {
                                   }
                                 }}
                               />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={updatingGoals[goal.id]}
+                                onClick={(e) => {
+                                  const input = (e.target as HTMLElement).parentElement?.querySelector(
+                                    "input",
+                                  ) as HTMLInputElement
+                                  if (input) {
+                                    const newAmount = Number.parseFloat(input.value)
+                                    if (newAmount >= 0) {
+                                      updateGoalProgress(goal.id, newAmount)
+                                      input.value = ""
+                                    }
+                                  }
+                                }}
+                                className="px-3"
+                              >
+                                {updatingGoals[goal.id] ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </Button>
                             </div>
                           )}
 

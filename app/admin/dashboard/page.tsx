@@ -25,6 +25,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 interface User {
   id: string
+  user_id: string // Add this field
   name: string
   email: string
   phone: string
@@ -147,10 +148,10 @@ export default function AdminDashboardPage() {
 
     console.log("📊 Loading users from database...")
 
-    // First check if we can access the table at all
+    // Make sure to select the user_id (auth ID) field
     const { data, error, count } = await supabase
       .from("users")
-      .select("*", { count: "exact" })
+      .select("id, user_id, name, email, phone, country, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -206,32 +207,15 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const loadUserMoneyFlow = async (userId: string) => {
+  const loadUserMoneyFlow = async (authUserId: string) => {
     try {
       const supabase = getSupabaseClient()
       if (!supabase) throw new Error("Database not available")
 
-      // First get the user's auth user_id from the users table
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("user_id")
-        .eq("id", userId)
-        .single()
+      console.log("💰 [ADMIN] Loading money flow for auth user ID:", authUserId)
 
-      if (userError) {
-        console.error("Failed to get user auth ID:", userError)
-        throw userError
-      }
-
-      if (!userData?.user_id) {
-        console.error("No auth user_id found for user:", userId)
-        throw new Error("User auth ID not found")
-      }
-
-      console.log("Loading money flow for auth user_id:", userData.user_id)
-
-      // Now query money_flow using the auth user_id
-      const { data, error } = await supabase.from("money_flow").select("type, amount").eq("user_id", userData.user_id)
+      // Query money_flow directly using the auth user ID
+      const { data, error } = await supabase.from("money_flow").select("type, amount").eq("user_id", authUserId)
 
       if (error) {
         console.error("Money flow query error:", error)
@@ -244,23 +228,16 @@ export default function AdminDashboardPage() {
       const expenses = data?.filter((r) => r.type === "expense").reduce((sum, r) => sum + r.amount, 0) || 0
 
       setUserMoneyFlow({
-        user_id: userId,
+        user_id: authUserId,
         total_income: income,
         total_expenses: expenses,
         net_savings: income - expenses,
         transaction_count: data?.length || 0,
       })
-
-      console.log("Money flow summary:", {
-        income,
-        expenses,
-        savings: income - expenses,
-        transactions: data?.length || 0,
-      })
     } catch (err) {
       console.error("Failed to load user money flow:", err)
       setUserMoneyFlow({
-        user_id: userId,
+        user_id: authUserId,
         total_income: 0,
         total_expenses: 0,
         net_savings: 0,
@@ -269,90 +246,27 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const loadUserGoals = async (userId: string) => {
+  const loadUserGoals = async (authUserId: string) => {
     setGoalsLoading(true)
     try {
       const supabase = getSupabaseClient()
       if (!supabase) throw new Error("Database not available")
 
-      console.log("🎯 [ADMIN] Loading goals for user ID:", userId)
+      console.log("🎯 [ADMIN] Loading goals for auth user ID:", authUserId)
 
-      // First get the user's auth user_id from the users table
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("user_id")
-        .eq("id", userId)
-        .single()
-
-      if (userError) {
-        console.error("❌ [ADMIN] Failed to get user auth ID:", userError)
-        throw userError
-      }
-
-      if (!userData?.user_id) {
-        console.error("❌ [ADMIN] No auth user_id found for user:", userId)
-        throw new Error("User auth ID not found")
-      }
-
-      console.log("🔍 [ADMIN] Loading goals for auth user_id:", userData.user_id)
-
-      // Check if financial_goals table exists first
-      const { data: tableCheck, error: tableError } = await supabase
-        .from("financial_goals")
-        .select("count", { count: "exact", head: true })
-
-      if (tableError) {
-        console.error("❌ [ADMIN] Financial goals table error:", tableError)
-        if (tableError.message.includes("does not exist")) {
-          console.log("⚠️ [ADMIN] Financial goals table does not exist. Please run the setup script.")
-          setUserGoals([])
-          return
-        }
-        throw tableError
-      }
-
-      console.log("✅ [ADMIN] Financial goals table exists")
-
-      // Try multiple query approaches to find the goals
-      console.log("🔍 [ADMIN] Trying direct user_id query...")
-
-      // First try: Direct user_id query
-      let { data: goalsData, error: goalsError } = await supabase
+      // Query financial_goals directly using the auth user ID
+      const { data: goalsData, error: goalsError } = await supabase
         .from("financial_goals")
         .select("*")
-        .eq("user_id", userData.user_id)
+        .eq("user_id", authUserId)
         .order("created_at", { ascending: false })
 
       if (goalsError) {
-        console.error("❌ [ADMIN] Direct user_id query failed:", goalsError)
-      } else {
-        console.log("✅ [ADMIN] Direct user_id query result:", goalsData?.length || 0, "goals found")
+        console.error("❌ [ADMIN] Goals query failed:", goalsError)
+        throw goalsError
       }
 
-      // If no results, try querying all goals and filter
-      if (!goalsData || goalsData.length === 0) {
-        console.log("🔍 [ADMIN] Trying to fetch all goals for debugging...")
-
-        const { data: allGoals, error: allGoalsError } = await supabase
-          .from("financial_goals")
-          .select("*")
-          .order("created_at", { ascending: false })
-
-        if (allGoalsError) {
-          console.error("❌ [ADMIN] All goals query failed:", allGoalsError)
-        } else {
-          console.log("📊 [ADMIN] All goals in database:", allGoals?.length || 0)
-          console.log("🔍 [ADMIN] All goals data:", allGoals)
-
-          // Filter goals for this user
-          const userGoalsFiltered = allGoals?.filter((goal) => goal.user_id === userData.user_id) || []
-          console.log("🎯 [ADMIN] Filtered goals for user:", userGoalsFiltered.length)
-
-          goalsData = userGoalsFiltered
-        }
-      }
-
-      console.log(`✅ [ADMIN] Final goals result: ${goalsData?.length || 0} goals for user`)
+      console.log(`✅ [ADMIN] Found ${goalsData?.length || 0} goals for user`)
       setUserGoals(goalsData || [])
     } catch (err) {
       console.error("❌ [ADMIN] Failed to load user goals:", err)
@@ -365,8 +279,9 @@ export default function AdminDashboardPage() {
   const handleViewUserFlow = (user: User) => {
     setSelectedUser(user)
     setUserGoals([]) // Clear previous goals
-    loadUserMoneyFlow(user.id)
-    loadUserGoals(user.id)
+    // Pass the auth_user_id from the user object
+    loadUserMoneyFlow(user.user_id) // Use auth_user_id
+    loadUserGoals(user.user_id) // Use auth_user_id
   }
 
   const handleAddQuote = async (e: React.FormEvent) => {
