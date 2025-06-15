@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import AuthGuard from "@/components/auth-guard"
 import { signOut } from "@/lib/auth"
 import { TrendingUp, ArrowLeft, LogOut, Calculator, PieChart } from "lucide-react"
+import { getCurrentUser } from "@/lib/auth"
+import { supabase } from "@/lib/supabase"
+import { getCurrencySymbol } from "@/lib/constants"
 
 export default function InvestingToolsPage() {
   const [compoundResult, setCompoundResult] = useState<number | null>(null)
@@ -19,6 +22,34 @@ export default function InvestingToolsPage() {
   const [mortgageResult, setMortgageResult] = useState<{ monthly: number; total: number; interest: number } | null>(
     null,
   )
+  const [userProfile, setUserProfile] = useState<{ country: string } | null>(null)
+  const [currencySymbol, setCurrencySymbol] = useState("$")
+  const [dcfResult, setDcfResult] = useState<number | null>(null)
+  const [peRatioResult, setPeRatioResult] = useState<number | null>(null)
+  const [inflationResult, setInflationResult] = useState<{ nominal: number; real: number; difference: number } | null>(
+    null,
+  )
+  const [dividendYieldResult, setDividendYieldResult] = useState<number | null>(null)
+
+  useEffect(() => {
+    loadUserProfile()
+  }, [])
+
+  const loadUserProfile = async () => {
+    try {
+      const user = await getCurrentUser()
+      if (!user) return
+
+      const { data, error } = await supabase.from("users").select("country").eq("user_id", user.id).single()
+
+      if (error) throw error
+      setUserProfile(data)
+      setCurrencySymbol(getCurrencySymbol(data.country))
+    } catch (err) {
+      console.error("Failed to load profile:", err)
+      setCurrencySymbol("$") // fallback
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -71,6 +102,71 @@ export default function InvestingToolsPage() {
     setMortgageResult({ monthly, total, interest })
   }
 
+  const calculateDCF = (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
+    const cashFlow = Number.parseFloat(formData.get("cashFlow") as string)
+    const discountRate = Number.parseFloat(formData.get("discountRate") as string) / 100
+    const growthRate = Number.parseFloat(formData.get("growthRate") as string) / 100
+    const years = Number.parseFloat(formData.get("years") as string)
+
+    let dcfValue = 0
+    for (let year = 1; year <= years; year++) {
+      const projectedCashFlow = cashFlow * Math.pow(1 + growthRate, year)
+      const presentValue = projectedCashFlow / Math.pow(1 + discountRate, year)
+      dcfValue += presentValue
+    }
+
+    setDcfResult(dcfValue)
+  }
+
+  const calculatePERatio = (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
+    const sharePrice = Number.parseFloat(formData.get("sharePrice") as string)
+    const eps = Number.parseFloat(formData.get("eps") as string)
+
+    const peRatio = sharePrice / eps
+    setPeRatioResult(peRatio)
+  }
+
+  const calculateInflationImpact = (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
+    const investmentAmount = Number.parseFloat(formData.get("investmentAmount") as string)
+    const expectedReturn = Number.parseFloat(formData.get("expectedReturn") as string) / 100
+    const inflationRate = Number.parseFloat(formData.get("inflationRate") as string) / 100
+    const years = Number.parseFloat(formData.get("inflationYears") as string)
+
+    const nominalValue = investmentAmount * Math.pow(1 + expectedReturn, years)
+    const realValue = nominalValue / Math.pow(1 + inflationRate, years)
+    const difference = nominalValue - realValue
+
+    setInflationResult({
+      nominal: nominalValue,
+      real: realValue,
+      difference: difference,
+    })
+  }
+
+  const calculateDividendYield = (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
+    const annualDividend = Number.parseFloat(formData.get("annualDividend") as string)
+    const sharePrice = Number.parseFloat(formData.get("dividendSharePrice") as string)
+
+    const dividendYield = (annualDividend / sharePrice) * 100
+    setDividendYieldResult(dividendYield)
+  }
+
   return (
     <AuthGuard requireAuth>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -121,38 +217,54 @@ export default function InvestingToolsPage() {
                     <span>Compound Interest Calculator</span>
                   </CardTitle>
                   <CardDescription>
-                    Calculate how your investment grows over time with compound interest
+                    Calculate how your investment grows exponentially over time by reinvesting interest. This shows the
+                    power of compound growth - earning returns on both your initial investment and previously earned
+                    interest.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid lg:grid-cols-2 gap-6">
                     <form onSubmit={calculateCompoundInterest} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="principal">Initial Investment ($)</Label>
-                        <Input id="principal" name="principal" type="number" step="0.01" required />
+                        <Label htmlFor="principal">Initial Investment Amount ({currencySymbol})</Label>
+                        <Input
+                          id="principal"
+                          name="principal"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 10000"
+                          required
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="rate">Annual Interest Rate (%)</Label>
-                        <Input id="rate" name="rate" type="number" step="0.01" required />
+                        <Input id="rate" name="rate" type="number" step="0.01" placeholder="e.g., 7.5" required />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="time">Time Period (Years)</Label>
-                        <Input id="time" name="time" type="number" step="0.1" required />
+                        <Label htmlFor="time">Number of Years</Label>
+                        <Input id="time" name="time" type="number" step="0.1" placeholder="e.g., 10" required />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="compound">Compounding Frequency (per year)</Label>
-                        <Input id="compound" name="compound" type="number" defaultValue="12" required />
+                        <Label htmlFor="compound">Times Compounded per Year</Label>
+                        <Input
+                          id="compound"
+                          name="compound"
+                          type="number"
+                          defaultValue="12"
+                          placeholder="12 for monthly, 4 for quarterly"
+                          required
+                        />
                       </div>
                       <Button type="submit" className="w-full">
-                        Calculate
+                        Calculate Future Value
                       </Button>
                     </form>
 
                     {compoundResult && (
                       <div className="bg-blue-50 p-6 rounded-lg">
-                        <h3 className="font-semibold text-lg mb-2">Result</h3>
+                        <h3 className="font-semibold text-lg mb-2">Future Value</h3>
                         <p className="text-2xl font-bold text-blue-600">
-                          $
+                          {currencySymbol}
                           {compoundResult.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -176,23 +288,26 @@ export default function InvestingToolsPage() {
                     <TrendingUp className="h-5 w-5" />
                     <span>Rule of 72</span>
                   </CardTitle>
-                  <CardDescription>Estimate how long it takes for your investment to double</CardDescription>
+                  <CardDescription>
+                    A simple way to estimate how many years it takes to double your investment. Just divide 72 by your
+                    annual rate of return. For example: 72 ÷ 8% = 9 years to double your money.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid lg:grid-cols-2 gap-6">
                     <form onSubmit={calculateRule72} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="rate">Annual Return Rate (%)</Label>
-                        <Input id="rate" name="rate" type="number" step="0.01" required />
+                        <Label htmlFor="rate">Annual Rate of Return (%)</Label>
+                        <Input id="rate" name="rate" type="number" step="0.01" placeholder="e.g., 8.5" required />
                       </div>
                       <Button type="submit" className="w-full">
-                        Calculate
+                        Calculate Doubling Time
                       </Button>
                     </form>
 
                     {rule72Result && (
                       <div className="bg-green-50 p-6 rounded-lg">
-                        <h3 className="font-semibold text-lg mb-2">Result</h3>
+                        <h3 className="font-semibold text-lg mb-2">Time to Double</h3>
                         <p className="text-2xl font-bold text-green-600">{rule72Result.toFixed(1)} years</p>
                         <p className="text-sm text-gray-600 mt-2">
                           Time needed for your investment to double at this rate.
@@ -218,7 +333,7 @@ export default function InvestingToolsPage() {
                   <div className="grid lg:grid-cols-2 gap-6">
                     <form onSubmit={calculateMortgage} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="principal">Loan Amount ($)</Label>
+                        <Label htmlFor="principal">Loan Amount ({currencySymbol})</Label>
                         <Input id="principal" name="principal" type="number" step="0.01" required />
                       </div>
                       <div className="space-y-2">
@@ -240,7 +355,7 @@ export default function InvestingToolsPage() {
                         <div>
                           <p className="text-sm text-gray-600">Monthly Payment</p>
                           <p className="text-xl font-bold text-purple-600">
-                            $
+                            {currencySymbol}
                             {mortgageResult.monthly.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -250,7 +365,7 @@ export default function InvestingToolsPage() {
                         <div>
                           <p className="text-sm text-gray-600">Total Amount Paid</p>
                           <p className="text-lg font-semibold">
-                            $
+                            {currencySymbol}
                             {mortgageResult.total.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -260,7 +375,7 @@ export default function InvestingToolsPage() {
                         <div>
                           <p className="text-sm text-gray-600">Total Interest</p>
                           <p className="text-lg font-semibold text-red-600">
-                            $
+                            {currencySymbol}
                             {mortgageResult.interest.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -279,13 +394,98 @@ export default function InvestingToolsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Inflation vs Returns Calculator</CardTitle>
-                  <CardDescription>Compare your investment returns against inflation</CardDescription>
+                  <CardDescription>
+                    Shows the real return on your investments after accounting for inflation. This helps you understand
+                    your actual purchasing power growth over time.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">
-                    This tool is coming soon. It will help you understand the real value of your returns after
-                    accounting for inflation.
-                  </p>
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    <form onSubmit={calculateInflationImpact} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="investmentAmount">Investment Amount ({currencySymbol})</Label>
+                        <Input
+                          id="investmentAmount"
+                          name="investmentAmount"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 50000"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="expectedReturn">Expected Annual Return (%)</Label>
+                        <Input
+                          id="expectedReturn"
+                          name="expectedReturn"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 10"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="inflationRate">Expected Inflation Rate (%)</Label>
+                        <Input
+                          id="inflationRate"
+                          name="inflationRate"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 3"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="inflationYears">Number of Years</Label>
+                        <Input
+                          id="inflationYears"
+                          name="inflationYears"
+                          type="number"
+                          placeholder="e.g., 20"
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Calculate Real Returns
+                      </Button>
+                    </form>
+
+                    {inflationResult && (
+                      <div className="bg-orange-50 p-6 rounded-lg space-y-3">
+                        <h3 className="font-semibold text-lg mb-2">Results</h3>
+                        <div>
+                          <p className="text-sm text-gray-600">Nominal Value (Before Inflation)</p>
+                          <p className="text-xl font-bold text-orange-600">
+                            {currencySymbol}
+                            {inflationResult.nominal.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Real Value (After Inflation)</p>
+                          <p className="text-xl font-bold text-green-600">
+                            {currencySymbol}
+                            {inflationResult.real.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Purchasing Power Lost to Inflation</p>
+                          <p className="text-lg font-semibold text-red-600">
+                            {currencySymbol}
+                            {inflationResult.difference.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -294,13 +494,72 @@ export default function InvestingToolsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Discounted Cash Flow (DCF) Calculator</CardTitle>
-                  <CardDescription>Value investments based on future cash flows</CardDescription>
+                  <CardDescription>
+                    Estimates today's value of future cash flows to help decide if an asset is undervalued. This is a
+                    fundamental valuation method used by investors to determine intrinsic value.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">
-                    This advanced valuation tool is coming soon. It will help you determine the intrinsic value of
-                    investments.
-                  </p>
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    <form onSubmit={calculateDCF} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cashFlow">Expected Annual Cash Flow ({currencySymbol})</Label>
+                        <Input
+                          id="cashFlow"
+                          name="cashFlow"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 5000"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="discountRate">Discount Rate (%)</Label>
+                        <Input
+                          id="discountRate"
+                          name="discountRate"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 10"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="growthRate">Cash Flow Growth Rate (%)</Label>
+                        <Input
+                          id="growthRate"
+                          name="growthRate"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 5"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="years">Number of Years</Label>
+                        <Input id="years" name="years" type="number" placeholder="e.g., 10" required />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Calculate Present Value
+                      </Button>
+                    </form>
+
+                    {dcfResult && (
+                      <div className="bg-purple-50 p-6 rounded-lg">
+                        <h3 className="font-semibold text-lg mb-2">Present Value</h3>
+                        <p className="text-2xl font-bold text-purple-600">
+                          {currencySymbol}
+                          {dcfResult.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          The estimated present value of all future cash flows.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -323,13 +582,57 @@ export default function InvestingToolsPage() {
             <TabsContent value="dividend">
               <Card>
                 <CardHeader>
-                  <CardTitle>Dividend Yield & Growth Calculator</CardTitle>
-                  <CardDescription>Analyze dividend-paying investments</CardDescription>
+                  <CardTitle>Dividend Yield Calculator</CardTitle>
+                  <CardDescription>
+                    Shows dividend income as a percentage of the share price. Higher yields provide more passive income,
+                    but very high yields might indicate company distress. Useful for income-focused investors.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">
-                    This tool is coming soon. It will help you analyze dividend yields and growth potential.
-                  </p>
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    <form onSubmit={calculateDividendYield} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="annualDividend">Annual Dividend Per Share ({currencySymbol})</Label>
+                        <Input
+                          id="annualDividend"
+                          name="annualDividend"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 4.50"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dividendSharePrice">Current Share Price ({currencySymbol})</Label>
+                        <Input
+                          id="dividendSharePrice"
+                          name="dividendSharePrice"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 75.00"
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Calculate Dividend Yield
+                      </Button>
+                    </form>
+
+                    {dividendYieldResult && (
+                      <div className="bg-teal-50 p-6 rounded-lg">
+                        <h3 className="font-semibold text-lg mb-2">Dividend Yield</h3>
+                        <p className="text-2xl font-bold text-teal-600">{dividendYieldResult.toFixed(2)}%</p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Annual dividend income as a percentage of share price.
+                        </p>
+                        <div className="mt-3 text-xs text-gray-500">
+                          <p>• Low Yield (0-2%): Growth-focused companies</p>
+                          <p>• Medium Yield (2-4%): Balanced dividend stocks</p>
+                          <p>• High Yield (4%+): Income-focused or potentially risky</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -338,12 +641,50 @@ export default function InvestingToolsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>P/E Ratio Calculator</CardTitle>
-                  <CardDescription>Evaluate stock valuations</CardDescription>
+                  <CardDescription>
+                    Shows how much investors pay per dollar of earnings. A lower P/E might indicate undervaluation,
+                    while a higher P/E might suggest growth expectations. Useful for comparing companies in the same
+                    industry.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">
-                    This tool is coming soon. It will help you analyze price-to-earnings ratios for stock valuation.
-                  </p>
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    <form onSubmit={calculatePERatio} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="sharePrice">Current Share Price ({currencySymbol})</Label>
+                        <Input
+                          id="sharePrice"
+                          name="sharePrice"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 150.50"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="eps">Earnings Per Share - EPS ({currencySymbol})</Label>
+                        <Input id="eps" name="eps" type="number" step="0.01" placeholder="e.g., 12.75" required />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Calculate P/E Ratio
+                      </Button>
+                    </form>
+
+                    {peRatioResult && (
+                      <div className="bg-indigo-50 p-6 rounded-lg">
+                        <h3 className="font-semibold text-lg mb-2">P/E Ratio</h3>
+                        <p className="text-2xl font-bold text-indigo-600">{peRatioResult.toFixed(2)}x</p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Investors pay {peRatioResult.toFixed(2)} times the annual earnings for each share.
+                        </p>
+                        <div className="mt-3 text-xs text-gray-500">
+                          <p>• Low P/E (5-15): Potentially undervalued or slow growth</p>
+                          <p>• Medium P/E (15-25): Fair valuation</p>
+                          <p>• High P/E (25+): High growth expectations or overvalued</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
