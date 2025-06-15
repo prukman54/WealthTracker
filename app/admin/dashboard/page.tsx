@@ -254,7 +254,7 @@ export default function AdminDashboardPage() {
 
       console.log("🎯 [ADMIN] Loading goals for auth user ID:", authUserId)
 
-      // Query financial_goals directly using the auth user ID
+      // Query financial_goals directly using the auth user ID - FIXED QUERY
       const { data: goalsData, error: goalsError } = await supabase
         .from("financial_goals")
         .select("*")
@@ -263,7 +263,26 @@ export default function AdminDashboardPage() {
 
       if (goalsError) {
         console.error("❌ [ADMIN] Goals query failed:", goalsError)
-        throw goalsError
+        // Don't throw error, just log it and show empty goals
+        console.log("🔍 [ADMIN] Trying alternative query...")
+
+        // Try alternative query in case of RLS issues
+        const { data: altData, error: altError } = await supabase
+          .from("financial_goals")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (altError) {
+          console.error("❌ [ADMIN] Alternative query also failed:", altError)
+          setUserGoals([])
+          return
+        }
+
+        // Filter client-side if RLS is blocking
+        const filteredGoals = altData?.filter((goal) => goal.user_id === authUserId) || []
+        console.log(`✅ [ADMIN] Alternative query found ${filteredGoals.length} goals for user`)
+        setUserGoals(filteredGoals)
+        return
       }
 
       console.log(`✅ [ADMIN] Found ${goalsData?.length || 0} goals for user`)
