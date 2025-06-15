@@ -29,23 +29,23 @@
   /* Dark Mode Colors */
   --primary: #cdaf7d;
   --accent: #013220;
-  --secondary: #34d399;
-  --background: #0f172a;
-  --surface: #1e293b;
-  --text-primary: #f8fafc;
-  --text-secondary: #e2e8f0;
-  --text-muted: #94a3b8;
-  --border: #334155;
-  --input: #1e293b;
+  --secondary: #2c3e50;
+  --background: #121212;
+  --surface: #1e1e1e;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border: #374151;
+  --input: #1e1e1e;
   --ring: #cdaf7d;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --popover: #1e293b;
-  --popover-foreground: #f8fafc;
-  --card: #1e293b;
-  --card-foreground: #f8fafc;
+  --muted: #1e1e1e;
+  --muted-foreground: #9ca3af;
+  --popover: #1e1e1e;
+  --popover-foreground: #ffffff;
+  --card: #1e1e1e;
+  --card-foreground: #ffffff;
 }
 
 * {
@@ -86,32 +86,6 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-
-  /* Enhanced button styles for better dark mode visibility */
-  .btn-primary {
-    @apply bg-primary text-white border-primary hover:bg-primary/90 hover:border-primary/90;
-  }
-
-  .btn-secondary {
-    @apply bg-secondary text-white border-secondary hover:bg-secondary/90 hover:border-secondary/90;
-  }
-
-  .btn-outline {
-    @apply border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-white;
-  }
-
-  .dark .btn-outline {
-    @apply border-primary text-primary hover:bg-primary hover:text-background;
-  }
-
-  /* Quote styling */
-  .wealth-quote {
-    @apply text-base font-semibold text-card-foreground leading-relaxed;
-  }
-
-  .dark .wealth-quote {
-    @apply text-accent font-bold;
-  }
 }
 
 /* Custom scrollbar */
@@ -135,37 +109,4 @@ body {
 /* Smooth transitions for theme changes */
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-}
-
-/* Mobile responsive improvements */
-@media (max-width: 768px) {
-  .container {
-    @apply px-4;
-  }
-
-  .mobile-stack {
-    @apply flex-col space-y-4 space-x-0;
-  }
-
-  .mobile-full {
-    @apply w-full;
-  }
-}
-
-/* Enhanced button contrast for dark mode */
-.dark button {
-  @apply font-medium;
-}
-
-.dark .btn-outline {
-  @apply border-2 border-accent text-accent hover:bg-accent hover:text-background;
-}
-
-/* Ensure all buttons have proper contrast */
-button[class*="outline"] {
-  @apply font-medium;
-}
-
-.dark button[class*="outline"] {
-  @apply border-2 text-accent border-accent hover:bg-accent hover:text-background;
 }
