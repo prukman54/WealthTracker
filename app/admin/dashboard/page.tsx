@@ -49,7 +49,7 @@ interface Quote {
 interface FinancialGoal {
   id: string
   user_id: string
-  goal_name: string
+  name: string
   target_amount: number
   current_amount: number
   is_achieved: boolean
@@ -275,7 +275,7 @@ export default function AdminDashboardPage() {
       const supabase = getSupabaseClient()
       if (!supabase) throw new Error("Database not available")
 
-      console.log("🎯 Loading goals for user ID:", userId)
+      console.log("🎯 [ADMIN] Loading goals for user ID:", userId)
 
       // First get the user's auth user_id from the users table
       const { data: userData, error: userError } = await supabase
@@ -285,16 +285,16 @@ export default function AdminDashboardPage() {
         .single()
 
       if (userError) {
-        console.error("❌ Failed to get user auth ID:", userError)
+        console.error("❌ [ADMIN] Failed to get user auth ID:", userError)
         throw userError
       }
 
       if (!userData?.user_id) {
-        console.error("❌ No auth user_id found for user:", userId)
+        console.error("❌ [ADMIN] No auth user_id found for user:", userId)
         throw new Error("User auth ID not found")
       }
 
-      console.log("🔍 Loading goals for auth user_id:", userData.user_id)
+      console.log("🔍 [ADMIN] Loading goals for auth user_id:", userData.user_id)
 
       // Check if financial_goals table exists first
       const { data: tableCheck, error: tableError } = await supabase
@@ -302,33 +302,60 @@ export default function AdminDashboardPage() {
         .select("count", { count: "exact", head: true })
 
       if (tableError) {
-        console.error("❌ Financial goals table error:", tableError)
+        console.error("❌ [ADMIN] Financial goals table error:", tableError)
         if (tableError.message.includes("does not exist")) {
-          console.log("⚠️ Financial goals table does not exist. Please run the setup script.")
+          console.log("⚠️ [ADMIN] Financial goals table does not exist. Please run the setup script.")
           setUserGoals([])
           return
         }
         throw tableError
       }
 
-      console.log("✅ Financial goals table exists")
+      console.log("✅ [ADMIN] Financial goals table exists")
 
-      // Now query financial_goals using the auth user_id
-      const { data, error, count } = await supabase
+      // Try multiple query approaches to find the goals
+      console.log("🔍 [ADMIN] Trying direct user_id query...")
+
+      // First try: Direct user_id query
+      let { data: goalsData, error: goalsError } = await supabase
         .from("financial_goals")
-        .select("*", { count: "exact" })
+        .select("*")
         .eq("user_id", userData.user_id)
         .order("created_at", { ascending: false })
 
-      if (error) {
-        console.error("❌ Goals query error:", error)
-        throw error
+      if (goalsError) {
+        console.error("❌ [ADMIN] Direct user_id query failed:", goalsError)
+      } else {
+        console.log("✅ [ADMIN] Direct user_id query result:", goalsData?.length || 0, "goals found")
       }
 
-      console.log(`✅ Goals query successful. Found ${count} goals for user:`, data)
-      setUserGoals(data || [])
+      // If no results, try querying all goals and filter
+      if (!goalsData || goalsData.length === 0) {
+        console.log("🔍 [ADMIN] Trying to fetch all goals for debugging...")
+
+        const { data: allGoals, error: allGoalsError } = await supabase
+          .from("financial_goals")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (allGoalsError) {
+          console.error("❌ [ADMIN] All goals query failed:", allGoalsError)
+        } else {
+          console.log("📊 [ADMIN] All goals in database:", allGoals?.length || 0)
+          console.log("🔍 [ADMIN] All goals data:", allGoals)
+
+          // Filter goals for this user
+          const userGoalsFiltered = allGoals?.filter((goal) => goal.user_id === userData.user_id) || []
+          console.log("🎯 [ADMIN] Filtered goals for user:", userGoalsFiltered.length)
+
+          goalsData = userGoalsFiltered
+        }
+      }
+
+      console.log(`✅ [ADMIN] Final goals result: ${goalsData?.length || 0} goals for user`)
+      setUserGoals(goalsData || [])
     } catch (err) {
-      console.error("❌ Failed to load user goals:", err)
+      console.error("❌ [ADMIN] Failed to load user goals:", err)
       setUserGoals([])
     } finally {
       setGoalsLoading(false)
@@ -657,8 +684,10 @@ export default function AdminDashboardPage() {
                                         <div className="text-center py-6 bg-gray-50 rounded-lg">
                                           <p className="text-gray-500">No financial goals set yet</p>
                                           <p className="text-xs text-gray-400 mt-1">
-                                            User hasn't created any goals or the financial_goals table needs to be set
-                                            up
+                                            User hasn't created any goals or there's a database issue
+                                          </p>
+                                          <p className="text-xs text-gray-400 mt-1">
+                                            Check browser console for detailed debugging info
                                           </p>
                                         </div>
                                       ) : (
@@ -672,7 +701,7 @@ export default function AdminDashboardPage() {
                                               <div key={goal.id} className="bg-white border rounded-lg p-4">
                                                 <div className="flex justify-between items-start mb-2">
                                                   <div className="flex items-center space-x-2">
-                                                    <h4 className="font-medium">{goal.goal_name}</h4>
+                                                    <h4 className="font-medium">{goal.name}</h4>
                                                     {goal.is_achieved && <span className="text-green-600">✅</span>}
                                                   </div>
                                                   <span className="text-sm text-gray-500">
