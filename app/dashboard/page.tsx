@@ -47,6 +47,7 @@ export default function DashboardPage() {
     targetAmount: "",
     currentAmount: "",
   })
+  const [addingGoal, setAddingGoal] = useState(false)
 
   useEffect(() => {
     loadUserProfile()
@@ -148,7 +149,12 @@ export default function DashboardPage() {
   const loadGoals = async () => {
     try {
       const user = await getCurrentUser()
-      if (!user) return
+      if (!user) {
+        console.log("❌ No user found for loading goals")
+        return
+      }
+
+      console.log("🔍 Loading goals for user:", user.id)
 
       const { data, error } = await supabase
         .from("financial_goals")
@@ -156,34 +162,86 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
-      if (error && error.code !== "PGRST116") throw error
+      if (error) {
+        console.error("❌ Error loading goals:", error)
+        if (error.code === "42P01") {
+          console.log("📋 Table 'financial_goals' doesn't exist yet")
+        }
+        return
+      }
+
+      console.log("✅ Goals loaded:", data)
       setGoals(data || [])
     } catch (err) {
-      console.error("Failed to load goals:", err)
+      console.error("💥 Failed to load goals:", err)
     }
   }
 
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault()
+    setAddingGoal(true)
+    console.log("🎯 Starting to add goal...")
+
     try {
       const user = await getCurrentUser()
-      if (!user) return
+      if (!user) {
+        console.error("❌ No user found")
+        setError("Please log in to add goals")
+        return
+      }
 
-      const { error } = await supabase.from("financial_goals").insert({
-        user_id: user.id,
+      console.log("✅ User found:", user.id)
+      console.log("📝 Goal data:", {
         name: newGoal.name,
+        targetAmount: newGoal.targetAmount,
+        currentAmount: newGoal.currentAmount,
+      })
+
+      // Validate input
+      if (!newGoal.name.trim()) {
+        setError("Goal name is required")
+        return
+      }
+
+      if (!newGoal.targetAmount || Number.parseFloat(newGoal.targetAmount) <= 0) {
+        setError("Target amount must be greater than 0")
+        return
+      }
+
+      const goalData = {
+        user_id: user.id,
+        name: newGoal.name.trim(),
         target_amount: Number.parseFloat(newGoal.targetAmount),
         current_amount: Number.parseFloat(newGoal.currentAmount) || 0,
         is_achieved: false,
-      })
+      }
 
-      if (error) throw error
+      console.log("💾 Inserting goal data:", goalData)
 
+      const { data, error } = await supabase.from("financial_goals").insert(goalData).select()
+
+      if (error) {
+        console.error("❌ Database error:", error)
+        setError(`Failed to add goal: ${error.message}`)
+        return
+      }
+
+      console.log("✅ Goal added successfully:", data)
+
+      // Reset form and close
       setNewGoal({ name: "", targetAmount: "", currentAmount: "" })
       setShowAddGoal(false)
-      loadGoals()
+      setError("") // Clear any previous errors
+
+      // Reload goals
+      await loadGoals()
+
+      console.log("🎉 Goal creation completed!")
     } catch (err: any) {
-      console.error("Failed to add goal:", err)
+      console.error("💥 Unexpected error:", err)
+      setError(`Unexpected error: ${err.message}`)
+    } finally {
+      setAddingGoal(false)
     }
   }
 
@@ -502,7 +560,7 @@ export default function DashboardPage() {
               <Card className="card-hover bg-card border-border cursor-pointer h-full">
                 <CardHeader className="text-center pb-4">
                   <div className="w-12 h-12 md:w-16 md:h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BarChart3 className="h-6 w-6 md:h-8 md:w-8 text-accent" />
+                    <BarChart3 className="h-6 w-6 md:h-8 md:h-8 text-accent" />
                   </div>
                   <CardTitle className="text-xl md:text-2xl text-card-foreground">📈 Investing Tools</CardTitle>
                   <CardDescription className="text-muted-foreground text-sm md:text-base">
@@ -578,8 +636,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <Button type="submit" className="bg-primary hover:bg-primary/90 text-white">
-                        Add Goal
+                      <Button type="submit" className="bg-primary hover:bg-primary/90 text-white" disabled={addingGoal}>
+                        {addingGoal ? "Adding..." : "Add Goal"}
                       </Button>
                       <Button
                         type="button"
