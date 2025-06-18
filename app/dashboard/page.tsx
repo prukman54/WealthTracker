@@ -16,6 +16,7 @@ import { TrendingUp, DollarSign, BarChart3, LogOut, User, RefreshCw, Menu, Plus,
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { trackFinancial, trackAuth } from "@/lib/analytics"
 
 interface UserProfile {
   name: string
@@ -237,6 +238,8 @@ export default function DashboardPage() {
       // Reload goals
       await loadGoals()
 
+      trackFinancial.addGoal(Number.parseFloat(newGoal.targetAmount))
+
       console.log("🎉 Goal creation completed!")
     } catch (err: any) {
       console.error("💥 Unexpected error:", err)
@@ -263,6 +266,10 @@ export default function DashboardPage() {
       setGoals((prevGoals) =>
         prevGoals.map((goal) => (goal.id === goalId ? { ...goal, current_amount: newAmount } : goal)),
       )
+
+      const goal = goals.find((g) => g.id === goalId)
+      const progressPercent = goal && goal.target_amount > 0 ? (newAmount / goal.target_amount) * 100 : 0
+      trackFinancial.updateGoal(progressPercent)
 
       console.log("✅ Goal updated successfully")
     } catch (err) {
@@ -299,6 +306,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
+      trackAuth.logout()
       await signOut()
       window.location.href = "https://rukman.com.np"
     } catch (err) {

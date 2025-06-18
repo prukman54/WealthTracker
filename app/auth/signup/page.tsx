@@ -15,6 +15,7 @@ import { signUp } from "@/lib/auth"
 import { COUNTRIES } from "@/lib/constants"
 import { TrendingUp } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { trackAuth } from "@/lib/analytics"
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -55,6 +56,7 @@ export default function SignUpPage() {
       })
 
       setSuccess(true)
+      trackAuth.signup()
       setTimeout(() => {
         router.push("/auth/login")
       }, 3000)

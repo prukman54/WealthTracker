@@ -15,6 +15,7 @@ import { TrendingUp, ArrowLeft, LogOut, Calculator, PieChart } from "lucide-reac
 import { getCurrentUser } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { getCurrencySymbol } from "@/lib/constants"
+import { trackCalculator, trackAuth } from "@/lib/analytics"
 
 export default function InvestingToolsPage() {
   const [compoundResult, setCompoundResult] = useState<number | null>(null)
@@ -53,6 +54,7 @@ export default function InvestingToolsPage() {
 
   const handleLogout = async () => {
     try {
+      trackAuth.logout()
       await signOut()
       window.location.href = "https://rukman.com.np"
     } catch (err) {
@@ -72,6 +74,7 @@ export default function InvestingToolsPage() {
 
     const result = principal * Math.pow(1 + rate / compound, compound * time)
     setCompoundResult(result)
+    trackCalculator.compoundInterest(principal)
   }
 
   const calculateRule72 = (e: React.FormEvent) => {
@@ -83,6 +86,7 @@ export default function InvestingToolsPage() {
 
     const result = 72 / rate
     setRule72Result(result)
+    trackCalculator.rule72(rate)
   }
 
   const calculateMortgage = (e: React.FormEvent) => {
@@ -100,6 +104,7 @@ export default function InvestingToolsPage() {
     const interest = total - principal
 
     setMortgageResult({ monthly, total, interest })
+    trackCalculator.mortgage(principal)
   }
 
   const calculateDCF = (e: React.FormEvent) => {
@@ -120,6 +125,7 @@ export default function InvestingToolsPage() {
     }
 
     setDcfResult(dcfValue)
+    trackCalculator.dcf(cashFlow)
   }
 
   const calculatePERatio = (e: React.FormEvent) => {

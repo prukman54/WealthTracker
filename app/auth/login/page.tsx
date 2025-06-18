@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { signIn, isAdmin } from "@/lib/auth"
 import { TrendingUp } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { trackAuth } from "@/lib/analytics"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -43,6 +44,7 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard")
       }
+      trackAuth.login()
     } catch (err: any) {
       setError(err.message || "Invalid email or password")
     } finally {

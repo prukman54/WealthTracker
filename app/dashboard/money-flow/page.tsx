@@ -18,6 +18,9 @@ import { supabase } from "@/lib/supabase"
 import { getCurrencySymbol, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from "@/lib/constants"
 import { TrendingUp, ArrowLeft, LogOut, Plus, DollarSign, TrendingDown, Wallet } from "lucide-react"
 
+// Add analytics import at the top
+import { trackFinancial, trackAuth } from "@/lib/analytics"
+
 interface MoneyFlowRecord {
   id: string
   type: "income" | "expense"
@@ -116,6 +119,9 @@ export default function MoneyFlowPage() {
         description: "",
       })
       loadRecords()
+
+      // In the handleSubmit function, after successful record addition, add:
+      trackFinancial.addTransaction(formData.type, Number.parseFloat(formData.amount))
     } catch (err: any) {
       setError(err.message || "Failed to add record")
     } finally {
@@ -125,6 +131,8 @@ export default function MoneyFlowPage() {
 
   const handleLogout = async () => {
     try {
+      // In the handleLogout function, before signOut(), add:
+      trackAuth.logout()
       await signOut()
       window.location.href = "https://rukman.com.np"
     } catch (err) {
@@ -177,7 +185,6 @@ export default function MoneyFlowPage() {
             </div>
           </div>
         </header>
-
         <main className="container mx-auto px-4 py-8">
           {/* Summary Cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-8">
