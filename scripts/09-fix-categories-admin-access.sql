@@ -7,6 +7,9 @@ BEGIN
     -- Drop existing policies if they exist
     DROP POLICY IF EXISTS "Anyone can view active categories" ON categories;
     DROP POLICY IF EXISTS "Admin can manage categories" ON categories;
+    DROP POLICY IF EXISTS "Users can view active categories" ON categories;
+    DROP POLICY IF EXISTS "Admin full access to categories" ON categories;
+    DROP POLICY IF EXISTS "Service role full access" ON categories;
     
     -- Recreate policies with proper admin access
     
@@ -126,4 +129,4 @@ FROM categories
 GROUP BY type
 ORDER BY type;
 
-COMMENT ON SCRIPT IS 'Fix admin access to categories table - resolves RLS permission issues';
+-- Script description: Fix admin access to categories table - resolves RLS permission issues

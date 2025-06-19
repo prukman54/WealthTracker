@@ -211,7 +211,7 @@ export default function AdminDashboardPage() {
     console.log("📂 Loading categories from database...")
 
     try {
-      // First try to load categories with admin privileges
+      // First try direct table access
       const { data, error, count } = await supabase
         .from("categories")
         .select("*", { count: "exact" })
@@ -220,31 +220,25 @@ export default function AdminDashboardPage() {
         .order("name", { ascending: true })
 
       if (error) {
-        console.error("❌ Categories query error:", error)
+        console.error("❌ Direct categories query error:", error)
 
-        // If it's a permission error, try alternative approach
-        if (error.code === "42501" || error.message.includes("permission denied")) {
-          console.log("🔄 Trying alternative admin query for categories...")
+        // Try RPC function as fallback
+        console.log("🔄 Trying RPC function fallback...")
+        const { data: rpcData, error: rpcError } = await supabase.rpc("get_all_categories_admin")
 
-          // Try with RPC call or direct query
-          const { data: altData, error: altError } = await supabase.rpc("get_all_categories_admin")
-
-          if (altError) {
-            console.error("❌ Alternative categories query also failed:", altError)
-            // Set empty categories but don't throw error
-            setCategories([])
-            return
-          }
-
-          console.log(`✅ Alternative categories query successful. Found ${altData?.length || 0} categories`)
-          setCategories(altData || [])
+        if (rpcError) {
+          console.error("❌ RPC categories query also failed:", rpcError)
+          // Set empty categories but don't throw error
+          setCategories([])
           return
         }
 
-        throw new Error(`Categories query failed: ${error.message}`)
+        console.log(`✅ RPC categories query successful. Found ${rpcData?.length || 0} categories`)
+        setCategories(rpcData || [])
+        return
       }
 
-      console.log(`✅ Categories query successful. Found ${count} categories:`, data)
+      console.log(`✅ Direct categories query successful. Found ${count} categories:`, data)
       setCategories(data || [])
     } catch (err: any) {
       console.error("❌ Categories loading failed:", err)
@@ -485,14 +479,38 @@ export default function AdminDashboardPage() {
 
       console.log("➕ Adding new category:", newCategoryName, newCategoryType)
 
-      const { data, error } = await supabase
-        .from("categories")
-        .insert({
-          name: newCategoryName.trim(),
-          type: newCategoryType,
-          sort_order: categories.filter((c) => c.type === newCategoryType).length + 1,
+      // Try direct insert first
+      let data, error
+
+      try {
+        const result = await supabase
+          .from("categories")
+          .insert({
+            name: newCategoryName.trim(),
+            type: newCategoryType,
+            sort_order: categories.filter((c) => c.type === newCategoryType).length + 1,
+          })
+          .select()
+
+        data = result.data
+        error = result.error
+      } catch (directError) {
+        console.log("Direct insert failed, trying RPC function...")
+
+        // Try RPC function as fallback
+        const rpcResult = await supabase.rpc("admin_manage_category", {
+          action: "create",
+          category_name: newCategoryName.trim(),
+          category_type: newCategoryType,
         })
-        .select()
+
+        if (rpcResult.error) {
+          throw rpcResult.error
+        }
+
+        data = [rpcResult.data]
+        error = null
+      }
 
       if (error) {
         console.error("❌ Add category error:", error)
