@@ -372,6 +372,14 @@ export default function DashboardPage() {
                 >
                   Investing Tools
                 </Link>
+                {process.env.NODE_ENV === "development" && (
+                  <Link
+                    href="/analytics-test"
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium text-xs"
+                  >
+                    Analytics Test
+                  </Link>
+                )}
                 <ThemeToggle />
                 <Button
                   variant="outline"
@@ -424,6 +432,15 @@ export default function DashboardPage() {
                   >
                     Investing Tools
                   </Link>
+                  {process.env.NODE_ENV === "development" && (
+                    <Link
+                      href="/analytics-test"
+                      className="text-muted-foreground hover:text-primary transition-colors font-medium py-2 text-sm"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Analytics Test (Dev)
+                    </Link>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
