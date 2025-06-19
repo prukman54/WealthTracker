@@ -57,7 +57,7 @@ export default function HomePage() {
               <BarChart3 className="h-12 w-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2 text-card-foreground">Money Flow Tracking</h3>
               <p className="text-muted-foreground">
-                Track your income and expenses with detailed categorization and insights.
+                Track your income & expenses with detailed categorization & insights.
               </p>
             </CardContent>
           </Card>
@@ -67,7 +67,7 @@ export default function HomePage() {
               <TrendingUp className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2 text-card-foreground">Investment Tools</h3>
               <p className="text-muted-foreground">
-                Access powerful calculators and tools to optimize your investment strategy.
+                Access powerful calculators & tools to optimize your investment strategy.
               </p>
             </CardContent>
           </Card>
@@ -77,7 +77,7 @@ export default function HomePage() {
               <Shield className="h-12 w-12 text-secondary mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2 text-card-foreground">Secure & Private</h3>
               <p className="text-muted-foreground">
-                Your financial data is encrypted and stored securely with bank-level security.
+                Your financial data is encrypted & stored securely with bank-level security.
               </p>
             </CardContent>
           </Card>
@@ -100,7 +100,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 mt-16 border-t border-border">
         <div className="text-center text-muted-foreground">
-          <p>&copy; 2024 WealthTracker by Rukman. All rights reserved.</p>
+          <p>&copy; 2022 WealthTracker by Rukman. All rights reserved.</p>
         </div>
       </footer>
     </div>
