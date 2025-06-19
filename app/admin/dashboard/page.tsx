@@ -22,6 +22,7 @@ import { testSupabaseConnection } from "@/lib/supabase-test"
 import { getCurrencySymbol, COUNTRIES } from "@/lib/constants"
 import { Shield, Users, MessageSquare, LogOut, Eye, Trash2, Plus, RefreshCw, AlertCircle } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { trackAdmin } from "@/lib/analytics"
 
 interface User {
   id: string
@@ -73,6 +74,8 @@ export default function AdminDashboardPage() {
   const router = useRouter()
   const [userGoals, setUserGoals] = useState<FinancialGoal[]>([])
   const [goalsLoading, setGoalsLoading] = useState(false)
+  const [userTransactions, setUserTransactions] = useState<any[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -295,12 +298,50 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const loadUserTransactions = async (authUserId: string) => {
+    setTransactionsLoading(true)
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Database not available")
+
+      console.log("💳 [ADMIN] Loading transactions for auth user ID:", authUserId)
+
+      // Query money_flow directly using the auth user ID
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from("money_flow")
+        .select("*")
+        .eq("user_id", authUserId)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+
+      if (transactionsError) {
+        console.error("❌ [ADMIN] Transactions query failed:", transactionsError)
+        setUserTransactions([])
+        return
+      }
+
+      console.log(`✅ [ADMIN] Found ${transactionsData?.length || 0} transactions for user`)
+      setUserTransactions(transactionsData || [])
+    } catch (err) {
+      console.error("❌ [ADMIN] Failed to load user transactions:", err)
+      setUserTransactions([])
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }
+
   const handleViewUserFlow = (user: User) => {
     setSelectedUser(user)
     setUserGoals([]) // Clear previous goals
+    setUserTransactions([]) // Clear previous transactions
+
+    // Track admin action
+    trackAdmin.viewUserData(user.user_id)
+
     // Pass the auth_user_id from the user object
     loadUserMoneyFlow(user.user_id) // Use auth_user_id
     loadUserGoals(user.user_id) // Use auth_user_id
+    loadUserTransactions(user.user_id) // Use auth_user_id
   }
 
   const handleAddQuote = async (e: React.FormEvent) => {
@@ -330,6 +371,8 @@ export default function AdminDashboardPage() {
       setSuccess("Quote added successfully!")
       setNewQuote("")
       await loadQuotes()
+
+      trackAdmin.addQuote()
     } catch (err: any) {
       console.error("❌ Failed to add quote:", err)
       setError(`Failed to add quote: ${err.message}`)
@@ -353,6 +396,8 @@ export default function AdminDashboardPage() {
       console.log("✅ Quote deleted successfully")
       setSuccess("Quote deleted successfully!")
       await loadQuotes()
+
+      trackAdmin.deleteQuote()
     } catch (err: any) {
       console.error("❌ Failed to delete quote:", err)
       setError(`Failed to delete quote: ${err.message}`)
@@ -668,6 +713,95 @@ export default function AdminDashboardPage() {
                                               </div>
                                             )
                                           })}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Transaction Details */}
+                                    <div>
+                                      <h3 className="text-lg font-semibold mb-3">
+                                        Transaction History{" "}
+                                        {transactionsLoading ? "(Loading...)" : `(${userTransactions.length})`}
+                                      </h3>
+                                      {transactionsLoading ? (
+                                        <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                          <p className="text-gray-500">Loading transactions...</p>
+                                        </div>
+                                      ) : userTransactions.length === 0 ? (
+                                        <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                          <p className="text-gray-500">No transactions found</p>
+                                          <p className="text-xs text-gray-400 mt-1">
+                                            User hasn't added any income or expense records yet
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                                          <div className="grid grid-cols-5 gap-2 text-xs font-medium text-gray-500 border-b pb-2">
+                                            <div>Date</div>
+                                            <div>Type</div>
+                                            <div>Category</div>
+                                            <div>Amount</div>
+                                            <div>Description</div>
+                                          </div>
+                                          {userTransactions.map((transaction) => (
+                                            <div
+                                              key={transaction.id}
+                                              className="grid grid-cols-5 gap-2 text-sm py-2 border-b border-gray-100 hover:bg-gray-50"
+                                            >
+                                              <div className="text-gray-600">
+                                                {new Date(transaction.date).toLocaleDateString()}
+                                              </div>
+                                              <div>
+                                                <span
+                                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                    transaction.type === "income"
+                                                      ? "bg-green-100 text-green-800"
+                                                      : "bg-red-100 text-red-800"
+                                                  }`}
+                                                >
+                                                  {transaction.type === "income" ? "💰" : "💸"} {transaction.type}
+                                                </span>
+                                              </div>
+                                              <div className="text-gray-600 capitalize">{transaction.category}</div>
+                                              <div
+                                                className={`font-medium ${
+                                                  transaction.type === "income" ? "text-green-600" : "text-red-600"
+                                                }`}
+                                              >
+                                                {getCurrencySymbol(selectedUser.country)}
+                                                {transaction.amount.toLocaleString()}
+                                              </div>
+                                              <div
+                                                className="text-gray-500 text-xs truncate"
+                                                title={transaction.description || "No description"}
+                                              >
+                                                {transaction.description || "—"}
+                                              </div>
+                                            </div>
+                                          ))}
+
+                                          {/* Transaction Summary */}
+                                          <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                              <div className="text-center">
+                                                <p className="text-gray-500">Total Transactions</p>
+                                                <p className="font-semibold">{userTransactions.length}</p>
+                                              </div>
+                                              <div className="text-center">
+                                                <p className="text-gray-500">Income Records</p>
+                                                <p className="font-semibold text-green-600">
+                                                  {userTransactions.filter((t) => t.type === "income").length}
+                                                </p>
+                                              </div>
+                                              <div className="text-center">
+                                                <p className="text-gray-500">Expense Records</p>
+                                                <p className="font-semibold text-red-600">
+                                                  {userTransactions.filter((t) => t.type === "expense").length}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
                                         </div>
                                       )}
                                     </div>
