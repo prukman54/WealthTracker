@@ -50,7 +50,7 @@ A comprehensive personal finance management application built with **Next.js 15*
 ### 📋 **Database Tables**
 
 #### **1. users** (User Profiles)
-```sql
+\`\`\`sql
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),           -- Internal table ID
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- Links to Supabase Auth
