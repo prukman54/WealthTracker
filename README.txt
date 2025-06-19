@@ -28,6 +28,7 @@ WealthTracker is a comprehensive personal finance management application built w
 ### 🛡️ **Admin Features (Fully Implemented)**
 - ✅ **Complete User Management**: View all users, their profiles, and financial data
 - ✅ **Financial Overview Dashboard**: See each user's income, expenses, savings, and goals
+- ✅ **🆕 Transaction Details Viewing**: View individual transaction history for each user
 - ✅ **Quote Management System**: Add/remove inspirational quotes for users
 - ✅ **Database Health Monitoring**: Real-time connection status and diagnostics
 - ✅ **User Financial Analytics**: Complete financial summary for each user
@@ -324,6 +325,36 @@ wealth-tracker/
 - **P/E Ratio**: Stock valuation metrics
 - **Dividend Yield**: Income percentage from investments
 
+## 🔍 ADMIN TRANSACTION MONITORING
+
+### **Complete User Financial Visibility**
+- **Transaction History**: View all individual transactions for any user
+- **Financial Timeline**: Chronological view of user's money flow
+- **Category Breakdown**: See spending patterns by category
+- **Transaction Details**: Date, type, amount, category, and description
+- **Currency Display**: Proper formatting based on user's country
+- **Visual Indicators**: Color-coded income (green) and expenses (red)
+- **Summary Statistics**: Total transactions, income count, expense count
+
+### **Admin Dashboard Features**
+\`\`\`
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   User Summary   │────│  Financial Goals │────│  Transaction    │
+│  - Total Income  │    │  - Goal Progress │    │  History        │
+│  - Total Expenses│    │  - Achievement   │    │  - Individual   │
+│  - Net Savings   │    │  - Target vs     │    │  - Records      │
+│  - Transaction   │    │    Current       │    │  - Full Details │
+│    Count         │    │  - Status        │    │  - Chronological│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+\`\`\`
+
+### **Transaction Monitoring Capabilities**
+- **Real-time Data**: Live transaction viewing as users add entries
+- **Complete Audit Trail**: Every financial transaction is visible to admin
+- **User Support**: Detailed transaction history for customer service
+- **Financial Analysis**: Understand user spending and earning patterns
+- **Compliance**: Full financial record keeping for regulatory requirements
+
 ## 🚀 PERFORMANCE OPTIMIZATIONS
 
 ### **Database Performance**
@@ -515,7 +546,8 @@ AND policyname LIKE '%admin%';
 - **v1.4** - Added financial goals functionality
 - **v1.5** - Improved admin dashboard and RLS policies
 - **v1.6** - Code cleanup and documentation improvements
-- **v2.0** - **CURRENT VERSION** - Production-ready with all features complete
+- **v2.0** - Production-ready with all features complete
+- **v2.1** - **CURRENT VERSION** - Added Google Analytics integration and admin transaction details viewing
 
 ## 🎉 CONCLUSION
 

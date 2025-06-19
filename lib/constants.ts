@@ -34,6 +34,18 @@ export const COUNTRIES = [
 ]
 
 /**
+ * DEPRECATED: Income and Expense Categories
+ *
+ * These categories are now managed dynamically through the admin panel.
+ * They remain here as fallbacks only when the database is unavailable.
+ *
+ * To manage categories:
+ * 1. Go to Admin Dashboard → Categories Manager
+ * 2. Add/remove/activate/deactivate categories as needed
+ * 3. Changes take effect immediately for all users
+ */
+
+/**
  * Income Categories
  *
  * Predefined categories for income transactions.

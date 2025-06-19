@@ -59,6 +59,16 @@ interface FinancialGoal {
   updated_at: string
 }
 
+interface Category {
+  id: string
+  name: string
+  type: "income" | "expense"
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -76,6 +86,10 @@ export default function AdminDashboardPage() {
   const [goalsLoading, setGoalsLoading] = useState(false)
   const [userTransactions, setUserTransactions] = useState<any[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryType, setNewCategoryType] = useState<"income" | "expense">("income")
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -128,7 +142,7 @@ export default function AdminDashboardPage() {
     for (let i = 0; i < retries; i++) {
       try {
         console.log(`🔄 Loading data attempt ${i + 1}...`)
-        await Promise.all([loadUsers(), loadQuotes()])
+        await Promise.all([loadUsers(), loadQuotes(), loadCategories()])
         setError("") // Clear any previous errors
         console.log("✅ Data loaded successfully")
         break
@@ -186,6 +200,30 @@ export default function AdminDashboardPage() {
 
     console.log(`✅ Quotes query successful. Found ${count} quotes:`, data)
     setQuotes(data || [])
+  }
+
+  const loadCategories = async () => {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error("Database connection not available")
+    }
+
+    console.log("📂 Loading categories from database...")
+
+    const { data, error, count } = await supabase
+      .from("categories")
+      .select("*", { count: "exact" })
+      .order("type", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true })
+
+    if (error) {
+      console.error("❌ Categories query error:", error)
+      throw new Error(`Categories query failed: ${error.message}`)
+    }
+
+    console.log(`✅ Categories query successful. Found ${count} categories:`, data)
+    setCategories(data || [])
   }
 
   const handleRefresh = async () => {
@@ -404,6 +442,111 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setSuccess("")
+
+    if (!newCategoryName.trim()) {
+      setError("Please enter a category name")
+      return
+    }
+
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Database not available")
+
+      console.log("➕ Adding new category:", newCategoryName, newCategoryType)
+
+      const { data, error } = await supabase
+        .from("categories")
+        .insert({
+          name: newCategoryName.trim(),
+          type: newCategoryType,
+          sort_order: categories.filter((c) => c.type === newCategoryType).length + 1,
+        })
+        .select()
+
+      if (error) {
+        console.error("❌ Add category error:", error)
+        if (error.code === "23505") {
+          throw new Error(`Category "${newCategoryName}" already exists for ${newCategoryType}`)
+        }
+        throw error
+      }
+
+      console.log("✅ Category added successfully:", data)
+      setSuccess("Category added successfully!")
+      setNewCategoryName("")
+      await loadCategories()
+
+      trackAdmin.addCategory(newCategoryType)
+    } catch (err: any) {
+      console.error("❌ Failed to add category:", err)
+      setError(`Failed to add category: ${err.message}`)
+    }
+  }
+
+  const handleToggleCategory = async (id: string, currentStatus: boolean) => {
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Database not available")
+
+      console.log(`🔄 Toggling category ${id} from ${currentStatus} to ${!currentStatus}`)
+
+      const { error } = await supabase
+        .from("categories")
+        .update({
+          is_active: !currentStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+
+      if (error) {
+        console.error("❌ Toggle category error:", error)
+        throw error
+      }
+
+      console.log("✅ Category toggled successfully")
+      setSuccess(`Category ${!currentStatus ? "activated" : "deactivated"} successfully!`)
+      await loadCategories()
+
+      trackAdmin.toggleCategory()
+    } catch (err: any) {
+      console.error("❌ Failed to toggle category:", err)
+      setError(`Failed to update category: ${err.message}`)
+    }
+  }
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete the "${name}" category? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Database not available")
+
+      console.log("🗑️ Deleting category with ID:", id)
+
+      const { error } = await supabase.from("categories").delete().eq("id", id)
+
+      if (error) {
+        console.error("❌ Delete category error:", error)
+        throw error
+      }
+
+      console.log("✅ Category deleted successfully")
+      setSuccess("Category deleted successfully!")
+      await loadCategories()
+
+      trackAdmin.deleteCategory()
+    } catch (err: any) {
+      console.error("❌ Failed to delete category:", err)
+      setError(`Failed to delete category: ${err.message}`)
+    }
+  }
+
   const handleLogout = async () => {
     try {
       localStorage.removeItem("admin_session")
@@ -553,6 +696,10 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="quotes" className="flex items-center space-x-2">
               <MessageSquare className="h-4 w-4" />
               <span>Quote Manager</span>
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center space-x-2">
+              <Plus className="h-4 w-4" />
+              <span>Categories Manager</span>
             </TabsTrigger>
           </TabsList>
 
@@ -894,6 +1041,172 @@ export default function AdminDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Categories Manager */}
+          <TabsContent value="categories">
+            <div className="space-y-6">
+              {/* Add Category Form */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-card-foreground flex items-center space-x-2">
+                    <Plus className="h-5 w-5" />
+                    <span>Add New Category</span>
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Add new income or expense categories for users to select from
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAddCategory} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Category Name</label>
+                        <Input
+                          placeholder="Enter category name..."
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Category Type</label>
+                        <select
+                          value={newCategoryType}
+                          onChange={(e) => setNewCategoryType(e.target.value as "income" | "expense")}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                        >
+                          <option value="income">Income</option>
+                          <option value="expense">Expense</option>
+                        </select>
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={connectionStatus !== "connected"}>
+                      Add Category
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Categories List */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Income Categories */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="text-card-foreground text-green-600">
+                      Income Categories ({categories.filter((c) => c.type === "income").length})
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Categories for income transactions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {categories.filter((c) => c.type === "income").length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">No income categories found</div>
+                      ) : (
+                        categories
+                          .filter((c) => c.type === "income")
+                          .map((category) => (
+                            <div
+                              key={category.id}
+                              className="flex justify-between items-center p-3 bg-green-50 rounded-lg"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span
+                                  className={`text-sm font-medium ${category.is_active ? "text-green-800" : "text-gray-500"}`}
+                                >
+                                  {category.name}
+                                </span>
+                                {!category.is_active && (
+                                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Inactive</span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleToggleCategory(category.id, category.is_active)}
+                                  className={`text-xs ${category.is_active ? "text-orange-600" : "text-green-600"}`}
+                                >
+                                  {category.is_active ? "Deactivate" : "Activate"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteCategory(category.id, category.name)}
+                                  className="text-red-600 hover:text-red-700"
+                                  disabled={connectionStatus !== "connected"}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Expense Categories */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="text-card-foreground text-red-600">
+                      Expense Categories ({categories.filter((c) => c.type === "expense").length})
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Categories for expense transactions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {categories.filter((c) => c.type === "expense").length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">No expense categories found</div>
+                      ) : (
+                        categories
+                          .filter((c) => c.type === "expense")
+                          .map((category) => (
+                            <div
+                              key={category.id}
+                              className="flex justify-between items-center p-3 bg-red-50 rounded-lg"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span
+                                  className={`text-sm font-medium ${category.is_active ? "text-red-800" : "text-gray-500"}`}
+                                >
+                                  {category.name}
+                                </span>
+                                {!category.is_active && (
+                                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Inactive</span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleToggleCategory(category.id, category.is_active)}
+                                  className={`text-xs ${category.is_active ? "text-orange-600" : "text-green-600"}`}
+                                >
+                                  {category.is_active ? "Deactivate" : "Activate"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteCategory(category.id, category.name)}
+                                  className="text-red-600 hover:text-red-700"
+                                  disabled={connectionStatus !== "connected"}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
