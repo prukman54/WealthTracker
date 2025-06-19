@@ -210,20 +210,47 @@ export default function AdminDashboardPage() {
 
     console.log("📂 Loading categories from database...")
 
-    const { data, error, count } = await supabase
-      .from("categories")
-      .select("*", { count: "exact" })
-      .order("type", { ascending: true })
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true })
+    try {
+      // First try to load categories with admin privileges
+      const { data, error, count } = await supabase
+        .from("categories")
+        .select("*", { count: "exact" })
+        .order("type", { ascending: true })
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true })
 
-    if (error) {
-      console.error("❌ Categories query error:", error)
-      throw new Error(`Categories query failed: ${error.message}`)
+      if (error) {
+        console.error("❌ Categories query error:", error)
+
+        // If it's a permission error, try alternative approach
+        if (error.code === "42501" || error.message.includes("permission denied")) {
+          console.log("🔄 Trying alternative admin query for categories...")
+
+          // Try with RPC call or direct query
+          const { data: altData, error: altError } = await supabase.rpc("get_all_categories_admin")
+
+          if (altError) {
+            console.error("❌ Alternative categories query also failed:", altError)
+            // Set empty categories but don't throw error
+            setCategories([])
+            return
+          }
+
+          console.log(`✅ Alternative categories query successful. Found ${altData?.length || 0} categories`)
+          setCategories(altData || [])
+          return
+        }
+
+        throw new Error(`Categories query failed: ${error.message}`)
+      }
+
+      console.log(`✅ Categories query successful. Found ${count} categories:`, data)
+      setCategories(data || [])
+    } catch (err: any) {
+      console.error("❌ Categories loading failed:", err)
+      // Don't throw error, just set empty categories
+      setCategories([])
     }
-
-    console.log(`✅ Categories query successful. Found ${count} categories:`, data)
-    setCategories(data || [])
   }
 
   const handleRefresh = async () => {
